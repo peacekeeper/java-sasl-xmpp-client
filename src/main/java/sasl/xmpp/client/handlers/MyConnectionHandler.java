@@ -5,7 +5,9 @@ import org.apache.logging.log4j.Logger;
 import tigase.jaxmpp.core.client.Connector;
 import tigase.jaxmpp.core.client.SessionObject;
 import tigase.jaxmpp.core.client.connector.StreamError;
+import tigase.jaxmpp.core.client.xmpp.modules.auth.SaslModule;
 import tigase.jaxmpp.core.client.xmpp.modules.connection.ConnectionSession;
+import tigase.jaxmpp.j2se.Jaxmpp;
 import tigase.jaxmpp.j2se.connection.ConnectionManager;
 
 import java.net.Socket;
@@ -14,9 +16,17 @@ public class MyConnectionHandler implements Connector.ConnectedHandler, Connecto
 
     private static final Logger log = LogManager.getLogger(MyConnectionHandler.class);
 
+    private final Jaxmpp jaxmpp;
+
+    public MyConnectionHandler(Jaxmpp jaxmpp) {
+        this.jaxmpp = jaxmpp;
+    }
+
     @Override
     public void onConnected(SessionObject sessionObject) {
         log.info("Connected: {}", sessionObject.getUserBareJid());
+        SaslModule saslModule = jaxmpp.getModule(SaslModule.class);
+        log.debug("SASL module mechanisms: {}", saslModule.getMechanismsOrder().get(0));
     }
 
     @Override

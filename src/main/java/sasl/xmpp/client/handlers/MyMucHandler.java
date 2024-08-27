@@ -7,12 +7,19 @@ import tigase.jaxmpp.core.client.xmpp.modules.muc.MucModule;
 import tigase.jaxmpp.core.client.xmpp.modules.muc.Room;
 import tigase.jaxmpp.core.client.xmpp.stanzas.Message;
 import tigase.jaxmpp.core.client.xmpp.stanzas.Presence;
+import tigase.jaxmpp.j2se.Jaxmpp;
 
 import java.util.Date;
 
 public class MyMucHandler implements MucModule.MucMessageReceivedHandler, MucModule.MessageErrorHandler, MucModule.PresenceErrorHandler, MucModule.StateChangeHandler {
 
     private static final Logger log = LogManager.getLogger(MyMucHandler.class);
+
+    private final Jaxmpp jaxmpp;
+
+    public MyMucHandler(Jaxmpp jaxmpp) {
+        this.jaxmpp = jaxmpp;
+    }
 
     @Override
     public void onMucMessageReceived(SessionObject sessionObject, Message message, Room room, String nickname, Date timestamp) {

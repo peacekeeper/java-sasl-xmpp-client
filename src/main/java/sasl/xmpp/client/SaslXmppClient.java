@@ -5,12 +5,12 @@ import org.apache.logging.log4j.Logger;
 import sasl.xmpp.client.handlers.MyConnectionHandler;
 import sasl.xmpp.client.handlers.MyMessageHandler;
 import sasl.xmpp.client.handlers.MyMucHandler;
+import sasl.xmpp.client.handlers.MySaslAuthStartHandler;
 import sasl.xmpp.client.ssl.TrustAllSSLSocketFactory;
 import tigase.jaxmpp.core.client.BareJID;
 import tigase.jaxmpp.core.client.Connector;
 import tigase.jaxmpp.core.client.JID;
 import tigase.jaxmpp.core.client.SessionObject;
-import tigase.jaxmpp.core.client.xmpp.modules.auth.SaslMechanism;
 import tigase.jaxmpp.core.client.xmpp.modules.auth.SaslModule;
 import tigase.jaxmpp.core.client.xmpp.modules.chat.MessageModule;
 import tigase.jaxmpp.core.client.xmpp.modules.muc.MucModule;
@@ -24,9 +24,9 @@ public class SaslXmppClient {
 
     private static final Logger log = LogManager.getLogger(SaslXmppClient.class);
 
-    private static final MyConnectionHandler MY_CONNECTION_HANDLER = new MyConnectionHandler();
-    private static final MyMessageHandler MY_MESSAGE_HANDLER = new MyMessageHandler();
-    private static final MyMucHandler MY_MUC_HANDLER = new MyMucHandler();
+    private static final String DOMAIN_NAME = "vienna2";
+    private static final BareJID USER_BARE_JID = BareJID.bareJIDInstance("alice@" + DOMAIN_NAME);
+    private static final String PASSWORD = "tigase";
 
     public static void main(String[] args) throws Exception {
 
@@ -37,9 +37,9 @@ public class SaslXmppClient {
         jaxmpp.getConnectionConfiguration().setUseSASL(true);
         jaxmpp.getConnectionConfiguration().setDisableTLS(false);
 
-        jaxmpp.getProperties().setUserProperty(SessionObject.DOMAIN_NAME, "vienna2");
-        jaxmpp.getProperties().setUserProperty(SessionObject.USER_BARE_JID, BareJID.bareJIDInstance("alice@vienna2"));
-        jaxmpp.getProperties().setUserProperty(SessionObject.PASSWORD, "tigase");
+        jaxmpp.getProperties().setUserProperty(SessionObject.DOMAIN_NAME, DOMAIN_NAME);
+        jaxmpp.getProperties().setUserProperty(SessionObject.USER_BARE_JID, USER_BARE_JID);
+        jaxmpp.getProperties().setUserProperty(SessionObject.PASSWORD, PASSWORD);
         jaxmpp.getProperties().setUserProperty(SocketConnector.SSL_SOCKET_FACTORY_KEY, TrustAllSSLSocketFactory.getSSLSocketFactory());
 
         tigase.jaxmpp.j2se.Presence.initialize(jaxmpp);
@@ -48,8 +48,6 @@ public class SaslXmppClient {
         addModules(jaxmpp);
         MessageModule messageModule = jaxmpp.getModule(MessageModule.class);
         SaslModule saslModule = jaxmpp.getModule(SaslModule.class);
-        log.debug("Mechanisms: {}", saslModule.getMechanismsOrder().get(0));
-        saslModule.addMechanism(SaslMechanism);
 
         log.debug("Adding handlers...");
         addHandlers(jaxmpp);
@@ -60,7 +58,7 @@ public class SaslXmppClient {
         for (int i=0; i<10; i++) {
             log.debug("Connected: {}", jaxmpp.isConnected());
             if (jaxmpp.isConnected()) {
-                messageModule.sendMessage(JID.jidInstance("bob@vienna2"), "Test", "This is a test from alice@vienna2");
+                messageModule.sendMessage(JID.jidInstance("bob@" + DOMAIN_NAME), "Test", "This is a test from alice");
             }
             TimeUnit.SECONDS.sleep(5);
         }
@@ -74,19 +72,26 @@ public class SaslXmppClient {
     }
 
     private static void addHandlers(Jaxmpp jaxmpp) {
-        jaxmpp.getEventBus().addHandler(Connector.ConnectedHandler.ConnectedEvent.class, MY_CONNECTION_HANDLER);
-        jaxmpp.getEventBus().addHandler(Connector.DisconnectedHandler.DisconnectedEvent.class, MY_CONNECTION_HANDLER);
-        jaxmpp.getEventBus().addHandler(Connector.ErrorHandler.ErrorEvent.class, MY_CONNECTION_HANDLER);
-        jaxmpp.getEventBus().addHandler(ConnectionManager.ConnectionEstablishedHandler.ConnectionEstablishedEvent.class, MY_CONNECTION_HANDLER);
-        jaxmpp.getEventBus().addHandler(ConnectionManager.ConnectionClosedHandler.ConnectionClosedEvent.class, MY_CONNECTION_HANDLER);
-        jaxmpp.getEventBus().addHandler(ConnectionManager.ConnectionFailedHandler.ConnectionFailedEvent.class, MY_CONNECTION_HANDLER);
-        jaxmpp.getEventBus().addHandler(MessageModule.MessageReceivedHandler.MessageReceivedEvent.class, MY_MESSAGE_HANDLER);
-        jaxmpp.getEventBus().addHandler(MessageModule.ChatCreatedHandler.ChatCreatedEvent.class, MY_MESSAGE_HANDLER);
-        jaxmpp.getEventBus().addHandler(MessageModule.ChatUpdatedHandler.ChatUpdatedEvent.class, MY_MESSAGE_HANDLER);
-        jaxmpp.getEventBus().addHandler(MessageModule.ChatClosedHandler.ChatClosedEvent.class, MY_MESSAGE_HANDLER);
-        jaxmpp.getEventBus().addHandler(MucModule.MucMessageReceivedHandler.MucMessageReceivedEvent.class, MY_MUC_HANDLER);
-        jaxmpp.getEventBus().addHandler(MucModule.MessageErrorHandler.MessageErrorEvent.class, MY_MUC_HANDLER);
-        jaxmpp.getEventBus().addHandler(MucModule.PresenceErrorHandler.PresenceErrorEvent.class, MY_MUC_HANDLER);
-        jaxmpp.getEventBus().addHandler(MucModule.StateChangeHandler.StateChangeEvent.class, MY_MUC_HANDLER);
+        MyConnectionHandler myConnectionHandler = new MyConnectionHandler(jaxmpp);
+        MyMessageHandler myMessageHandler = new MyMessageHandler(jaxmpp);
+        MyMucHandler myMucHandler = new MyMucHandler(jaxmpp);
+        MySaslAuthStartHandler mySaslAuthStartHandler = new MySaslAuthStartHandler(jaxmpp);
+        jaxmpp.getEventBus().addHandler(Connector.ConnectedHandler.ConnectedEvent.class, myConnectionHandler);
+        jaxmpp.getEventBus().addHandler(Connector.DisconnectedHandler.DisconnectedEvent.class, myConnectionHandler);
+        jaxmpp.getEventBus().addHandler(Connector.ErrorHandler.ErrorEvent.class, myConnectionHandler);
+        jaxmpp.getEventBus().addHandler(ConnectionManager.ConnectionEstablishedHandler.ConnectionEstablishedEvent.class, myConnectionHandler);
+        jaxmpp.getEventBus().addHandler(ConnectionManager.ConnectionClosedHandler.ConnectionClosedEvent.class, myConnectionHandler);
+        jaxmpp.getEventBus().addHandler(ConnectionManager.ConnectionFailedHandler.ConnectionFailedEvent.class, myConnectionHandler);
+        jaxmpp.getEventBus().addHandler(MessageModule.MessageReceivedHandler.MessageReceivedEvent.class, myMessageHandler);
+        jaxmpp.getEventBus().addHandler(MessageModule.ChatCreatedHandler.ChatCreatedEvent.class, myMessageHandler);
+        jaxmpp.getEventBus().addHandler(MessageModule.ChatUpdatedHandler.ChatUpdatedEvent.class, myMessageHandler);
+        jaxmpp.getEventBus().addHandler(MessageModule.ChatClosedHandler.ChatClosedEvent.class, myMessageHandler);
+        jaxmpp.getEventBus().addHandler(MucModule.MucMessageReceivedHandler.MucMessageReceivedEvent.class, myMucHandler);
+        jaxmpp.getEventBus().addHandler(MucModule.MessageErrorHandler.MessageErrorEvent.class, myMucHandler);
+        jaxmpp.getEventBus().addHandler(MucModule.PresenceErrorHandler.PresenceErrorEvent.class, myMucHandler);
+        jaxmpp.getEventBus().addHandler(MucModule.StateChangeHandler.StateChangeEvent.class, myMucHandler);
+        jaxmpp.getEventBus().addHandler(SaslModule.SaslAuthStartHandler.SaslAuthStartEvent.class, mySaslAuthStartHandler);
+        jaxmpp.getEventBus().addHandler(SaslModule.SaslAuthSuccessHandler.SaslAuthSuccessEvent.class, mySaslAuthStartHandler);
+        jaxmpp.getEventBus().addHandler(SaslModule.SaslAuthFailedHandler.SaslAuthFailedEvent.class, mySaslAuthStartHandler);
     }
 }
